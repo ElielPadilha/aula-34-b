@@ -5,6 +5,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import pandas as pd
+from datetime import datetime
+from weather.routes import weather_bp  # Importando o Blueprint
+
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sua_chave_secreta"  # Substitua por uma chave secreta segura
@@ -46,7 +49,19 @@ class User(db.Model, UserMixin):
     def __init__(self, username, password):
         self.username = username
         self.password = bcrypt.generate_password_hash(password).decode('utf-8')
-    
+
+# ### **Adicionar o Modelo `Reservation`** No arquivo `app.py`, crie o modelo `Reservation`
+# para reservar livros
+
+class Reservation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('livro.id'), nullable=False)
+    date_reserved = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __init__(self, user_id, book_id):
+        self.user_id = user_id
+        self.book_id = book_id    
     #criar tabela e inserir dados iniciais 
 
 with app.app_context():
@@ -205,5 +220,77 @@ def logout():
 #### 4.5 Iniciar o Servidor Flask ---> 1. **Adicionar o Código para Rodar o Servidor:**
     # No final do `app.py`, adicione o seguinte código para iniciar o servidor Flask:
 
+
+
+
+
+### 2. **Criar a Rota e Página de Listagem de Livros para Reserva** Crie uma nova rota para exibir os livros disponíveis para reserva:
+
+@app.route("/reservar", methods=["GET"])
+@login_required
+def reservar():
+    livros = Livro.query.all()  # Pega todos os livros
+    return render_template("reservar.html", livros=livros)
+
+
+# criando a rota para processar a reserva
+
+@app.route("/fazer_reserva/<int:book_id>")
+@login_required
+def fazer_reserva(book_id):
+    # Verifica se o livro já foi reservado pelo usuário
+    reserva_existente = Reservation.query.filter_by(user_id=current_user.id, book_id=book_id).first()
+    if reserva_existente:
+        flash("Você já reservou este livro.")
+        return redirect(url_for("reservar"))
+
+    # Criação de uma nova reserva
+    nova_reserva = Reservation(user_id=current_user.id, book_id=book_id)
+    db.session.add(nova_reserva)
+    db.session.commit()
+    flash("Reserva realizada com sucesso!")
+    return redirect(url_for("reservar"))
+
+
+# - **Verificações:**     - Antes de criar uma nova reserva, o sistema verifica se o usuário já reservou o livro para evitar duplicatas.
+
+### 4. **Visualizar Reservas** Adicione uma rota para visualizar as reservas de um usuário:
+
+@app.route("/minhas_reservas")
+@login_required
+def minhas_reservas():
+    reservas = Reservation.query.filter_by(user_id=current_user.id).all()
+    return render_template("minhas_reservas.html", reservas=reservas)
+
+
+#  Criando Rota para DashBoard
+
+@app.route("/dashboard")
+@login_required
+#@admin_required
+def dashboard():
+    # Totalizadores
+    total_livros = Livro.query.count()
+    total_usuarios = User.query.count()
+    total_reservas = Reservation.query.count()
+
+    # Dados para os gráficos
+    livros_por_autor = db.session.query(Livro.autor, db.func.count(Livro.id)).group_by(Livro.autor).all()
+    livros_por_ano = db.session.query(Livro.ano, db.func.count(Livro.id)).group_by(Livro.ano).all()
+    livros_por_editora = db.session.query(Livro.editora, db.func.count(Livro.id)).group_by(Livro.editora).all()
+
+    return render_template("dashboard.html",
+                           total_livros=total_livros,
+                           total_usuarios=total_usuarios,
+                           total_reservas=total_reservas,
+                           livros_por_autor=livros_por_autor,
+                           livros_por_ano=livros_por_ano,
+                           livros_por_editora=livros_por_editora)
+
+# Registrando o Blueprint
+app.register_blueprint(weather_bp)
+
 if __name__ == "__main__":
     app.run(debug=True)
+
+
