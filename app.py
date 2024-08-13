@@ -7,7 +7,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 import pandas as pd
 from datetime import datetime
 from weather.routes import weather_bp  # Importando o Blueprint
-
+from flask import Flask, render_template, jsonify # Importe o modulo jsonify
+from cotacoes import get_currency_rates # importação da função para consultar as cotações
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sua_chave_secreta"  # Substitua por uma chave secreta segura
@@ -91,6 +92,17 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # 2. **Rota `/curriculo`:** -----> Crie uma rota para a página de currículo:   
+
+# Rota para renderizar a página de cotações
+@app.route('/cotacoes')
+def cotacoes():
+    return render_template('cotacoes.html')
+
+# Rota para fornecer as cotações em formato JSON
+@app.route('/rates')
+def rates():
+    return jsonify(get_currency_rates())
+
 
 @app.route("/curriculo")
 def curriculo():
