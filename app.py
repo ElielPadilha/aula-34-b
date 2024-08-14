@@ -172,7 +172,15 @@ def inicio():
 def novo():
     return render_template("novo.html", titulo="Novo Livro")
 
-@app.route("/criar", methods=["POST"])
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
+
+@app.route("/weather")
+@login_required
+def clima():
+    return render_template("weather.html")
+
 @login_required
 def criar():
     titulo = request.form["titulo"]
